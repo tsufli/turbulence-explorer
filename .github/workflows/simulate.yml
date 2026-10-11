@@ -1,0 +1,84 @@
+name: Simulate and publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      preset:
+        description: Simulation preset (extended uses more compute)
+        type: choice
+        options: [standard, quick, extended]
+        default: standard
+      overrides:
+        description: 'Optional JSON overrides, e.g. {"nu":0.001,"alpha":0.02,"seed":7}'
+        type: string
+        default: '{}'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: turbulence-pages
+  cancel-in-progress: false
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install numerical dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Verify solver
+        run: python -m unittest discover -s tests -v
+      - name: Prepare run configuration
+        env:
+          SIM_PRESET: ${{ inputs.preset || 'standard' }}
+          SIM_OVERRIDES: ${{ inputs.overrides || '{}' }}
+        run: python prepare_config.py
+      - name: Run simulation and build dashboard
+        env:
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: python simulation.py --config effective-config.json --output site
+      - name: Write run summary
+        run: |
+          python - <<'PY'
+          import json, os
+          d = json.load(open('site/results.json'))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write('## Computed simulation results\n\n')
+              f.write('```json\n'+json.dumps(d['summary'], indent=2)+'\n```\n')
+              f.write('Results are deployed in the next job. No stationary scaling law is certified by this run.\n')
+          PY
+      - name: Keep effective parameters for reproducibility
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-config
+          path: effective-config.json
+          retention-days: 7
+      - name: Upload Pages site
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    needs: simulate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Publish results
+        id: deployment
+        uses: actions/deploy-pages@v4
