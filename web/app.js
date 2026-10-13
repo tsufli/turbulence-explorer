@@ -40,10 +40,10 @@ async function getFrame(index){
 function drawField(frame){const a=frame.values,n=frame.n,c=$('vorticity'),ctx=c.getContext('2d'),im=ctx.createImageData(n,n),limit=data.colorLimit;for(let y=0;y<n;y++)for(let x=0;x<n;x++){const v=Math.max(-1,Math.min(1,a[y*n+x]/limit)),base=[24,33,38],end=v>0?[225,118,100]:[63,133,203],p=((n-1-y)*n+x)*4;for(let j=0;j<3;j++)im.data[p+j]=base[j]+Math.abs(v)*(end[j]-base[j]);im.data[p+3]=255;}const off=document.createElement('canvas');off.width=off.height=n;off.getContext('2d').putImageData(im,0,0);ctx.imageSmoothingEnabled=false;ctx.drawImage(off,0,0,c.width,c.height);}
 async function renderSpatial(index){
  const token=++renderToken,meta=data.frames[index];
- for(const id of ['vorticity','streamlines'])$(id).setAttribute('aria-busy','true');
- $('field-time').textContent=$('stream-time').textContent=`Loading t = ${meta.t.toFixed(2)}…`;
- try{const frame=await getFrame(index);if(token!==renderToken)return;drawField(frame);Streamlines.draw($('streamlines'),frame);$('field-time').textContent=$('stream-time').textContent=`t = ${frame.t.toFixed(2)}`;for(const id of ['vorticity','streamlines'])$(id).setAttribute('aria-busy','false');if(playing&&index+1<data.frames.length)getFrame(index+1).catch(()=>{});}
- catch(error){if(token!==renderToken)return;stopPlayback();$('field-time').textContent=$('stream-time').textContent=error.message;}
+ $('vorticity').setAttribute('aria-busy','true');
+ $('field-time').textContent=`Loading t = ${meta.t.toFixed(2)}…`;
+ try{const frame=await getFrame(index);if(token!==renderToken)return;drawField(frame);$('field-time').textContent=`t = ${frame.t.toFixed(2)}`;$('vorticity').setAttribute('aria-busy','false');if(playing&&index+1<data.frames.length)getFrame(index+1).catch(()=>{});}
+ catch(error){if(token!==renderToken)return;stopPlayback();$('field-time').textContent=error.message;}
 }
 function render(){if(!data)return;const frame=data.frames[frameIndex],sample=nearest(data.samples,frame.t),s=$('view').value==='average'?data.average:sample;
  $('time-label').textContent=frame.t.toFixed(2);$('energy').textContent=fmt(sample.energy);const spatial=renderSpatial(frameIndex);

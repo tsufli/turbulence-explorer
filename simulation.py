@@ -232,7 +232,7 @@ def main():
         shutil.copy2(src, out / src.name)
     # A new field schema must not run with an older cached dashboard script.
     index = (out / 'index.html').read_text()
-    for name in ('style.css', 'streamlines.js', 'app.js'):
+    for name in ('style.css', 'app.js'):
         version = hashlib.sha256((out / name).read_bytes()).hexdigest()[:12]
         index = index.replace(f'"{name}"', f'"{name}?v={version}"')
     (out / 'index.html').write_text(index)
