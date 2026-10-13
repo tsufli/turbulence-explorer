@@ -5,6 +5,7 @@ The domain is periodic, with zero mean velocity and zero mean vorticity.
 """
 from dataclasses import dataclass, asdict
 import argparse
+import hashlib
 from datetime import datetime, timezone
 import json
 from pathlib import Path
@@ -229,6 +230,12 @@ def main():
     data = run(Config(**json.loads(Path(args.config).read_text())), out / 'frames')
     for src in Path(__file__).parent.joinpath('web').iterdir():
         shutil.copy2(src, out / src.name)
+    # A new field schema must not run with an older cached dashboard script.
+    index = (out / 'index.html').read_text()
+    for name in ('style.css', 'streamlines.js', 'app.js'):
+        version = hashlib.sha256((out / name).read_bytes()).hexdigest()[:12]
+        index = index.replace(f'"{name}"', f'"{name}?v={version}"')
+    (out / 'index.html').write_text(index)
     (out / 'results.json').write_text(json.dumps(data, separators=(',', ':'), allow_nan=False))
     (out / '.nojekyll').touch()
     print(json.dumps(data['summary'], indent=2))

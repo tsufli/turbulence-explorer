@@ -55,7 +55,7 @@ function render(){if(!data)return;const frame=data.frames[frameIndex],sample=nea
  chart('enstrophy-flux',K,[{y:s.enstrophy_flux,color:colors.orange}],{yLabel:'ΠZ(K)',xLabel:'K',zero:true,band});
  const kind=$('history-kind').value;chart('history',data.samples.map(v=>v.t),[{y:data.samples.map(v=>v[kind]),color:colors.cyan}],{xLabel:'Time t',yLabel:kind==='energy'?'E total':'Z total',band:[data.summary.average_start,data.summary.average_end],marker:frame.t});return spatial;
 }
-async function boot(){try{const response=await fetch('results.json',{cache:'no-store'});if(!response.ok)throw new Error(`HTTP ${response.status}`);data=await response.json();if(data.schema_version!==2||!data.frames.length)throw new Error('Unsupported or empty results; refresh after deployment');
+async function boot(){try{const response=await fetch('results.json?schema=2',{cache:'no-store'});if(!response.ok)throw new Error(`HTTP ${response.status}`);data=await response.json();if(data.schema_version!==2||!data.frames.length)throw new Error('Unsupported or empty results; refresh after deployment');
  data.colorLimit=Math.max(1e-12,...data.frames.map(f=>f.vorticity_max));$('field-resolution').textContent=`Full ${data.config.n} × ${data.config.n} simulation grid`;
  $('color-min').textContent='−'+fmt(data.colorLimit);$('color-max').textContent='+'+fmt(data.colorLimit);
  $('grid').textContent=`${data.config.n} × ${data.config.n}`;$('forcing').textContent=`kf = ${data.config.kf}`;$('flux').textContent=data.summary.inverse_range_mean_flux===null?'N/A':fmt(data.summary.inverse_range_mean_flux);
