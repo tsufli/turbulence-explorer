@@ -26,15 +26,15 @@ Edit `config.json` and commit, or choose a workflow preset with optional JSON ov
 | `n` | 128 | Square grid; choices 64, 128, 256, 512 |
 | `length` | 2π | Side of periodic square box; kmin = 2π/L |
 | `nu` | 0.0005 | Ordinary viscosity, no hyperviscosity |
-| `alpha` | 0.03 | Linear drag on all retained modes |
+| `alpha` | 0.003 | Linear drag on all retained modes |
 | `epsilon` | 0.1 | Expected kinetic energy injection per unit time |
 | `kf` | 16 | Forcing ring center in physical wavenumber |
 | `bandwidth` | 2 | Full radial width of forcing ring |
 | `dt` | 0.01 | Maximum timestep; advective CFL target 0.25 |
-| `duration` | 120 | End time |
-| `average_after` | 60 | Start of trapezoidal time averages |
-| `sample_interval` | 0.5 | Spectrum/flux/history sampling |
-| `frame_interval` | 1 | Vorticity snapshot sampling |
+| `duration` | 1200 | End time |
+| `average_after` | 600 | Start of trapezoidal time averages |
+| `sample_interval` | 1 | Spectrum/flux/history sampling |
+| `frame_interval` | 10 | Vorticity snapshot sampling |
 | `seed` | 42 | Reproducible Gaussian random generator |
 
 `quick`: 64², kf=8, T=30, averaging after 15. `standard`: values in `config.json`. `extended`: 256², kf=32, ν=0.00015, T=200, averaging after 100. Overrides apply after presets. Changing box size changes physical mode spacing; keep the forcing band inside the dealiased disk. The code validates this.

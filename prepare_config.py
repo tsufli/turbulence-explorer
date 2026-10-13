@@ -18,7 +18,7 @@ if not isinstance(overrides, dict):
     raise ValueError('Overrides must be a JSON object')
 config.update(overrides)
 c = Config(**config)
-if c.duration > 1000 or c.duration / c.dt > 200000:
+if c.duration > 2000 or c.duration / c.dt > 200000:
     raise ValueError('Run exceeds the workflow compute limit; reduce duration or run locally')
 if min(c.sample_interval, c.frame_interval) < c.duration / 2000:
     raise ValueError('Limit output to at most 2000 samples/frames')
