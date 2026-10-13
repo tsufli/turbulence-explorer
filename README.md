@@ -1,6 +1,8 @@
 # 2D Turbulence Explorer
 
-A reproducible Python simulation of incompressible 2D Navier–Stokes, with an interactive GitHub Pages dashboard showing **computed** vorticity, energy spectra, energy flux and enstrophy flux.
+A reproducible Python simulation of incompressible 2D Navier–Stokes, with an interactive GitHub Pages dashboard showing **computed** full-resolution vorticity, instantaneous velocity streamlines, energy spectra, energy flux and enstrophy flux.
+
+The two spatial plots share the time slider. Vorticity uses every point of the simulation grid without downsampling or scale filtering. Streamline arrows follow the frozen velocity field at that same time, with periodic bilinear interpolation and midpoint integration in arc length; they are not trajectories of particles through the evolving flow. No large-scale filter is applied to either field. Spatial frames load on demand and a small cache keeps playback memory bounded.
 
 ## Start on GitHub
 
@@ -60,10 +62,13 @@ Before making quantitative claims, compare longer averaging windows, independent
 ```bash
 python -m pip install -r requirements.txt
 python -m unittest discover -s tests -v
+node tests/test_streamlines.cjs
 python simulation.py --config config.json --output site
 python -m http.server 8000 --directory site
 ```
 
-Open `http://localhost:8000`. All graphs are drawn with browser Canvas; no external CDN is required. Physics tests verify Parseval normalization, Biot–Savart sign, conservation, viscous decay, forcing covariance and flux cutoff/sign. The vorticity display is downsampled to at most 64²; all diagnostics use the full grid.
+Open `http://localhost:8000`. All graphs are drawn with browser Canvas; no external CDN is required. Physics tests verify Parseval normalization, Biot–Savart sign, conservation, viscous decay, forcing covariance, flux cutoff/sign and full-grid frame export. Streamline tests verify periodic interpolation, arrow direction, a zero velocity field and contour preservation in a Taylor–Green vortex.
+
+`results.json` schema version 2 contains frame times and URLs. Each `frames/frame-NNNN.bin` contains three row-major little-endian float32 N×N planes, ordered ω, ux, uy. Float32 is used only to transfer visualization fields; the solver and spectral diagnostics still use float64, with unchanged equations, parameters, random forcing and timestepping. The global vorticity color limit is recorded from the full grid across the run. Frames are published alongside the dashboard, without adding numerical data to the source branch.
 
 References: [GitHub Pages custom workflows](https://docs.github.com/en/pages/getting-started-with-github-pages/using-custom-workflows-with-github-pages), [2D Gaussian white-noise stirring and cascade regimes](https://arxiv.org/abs/0907.3396).

@@ -1,6 +1,8 @@
 import unittest
+import tempfile
+from pathlib import Path
 import numpy as np
-from simulation import Config, Solver, run
+from simulation import Config, Solver, run, snapshot
 
 
 class PhysicsChecks(unittest.TestCase):
@@ -69,6 +71,23 @@ class PhysicsChecks(unittest.TestCase):
         self.assertEqual(a['samples'], b['samples'])
         self.assertLess(abs(a['summary']['energy_budget_residual']), 1e-8)
         self.assertLess(abs(a['summary']['enstrophy_budget_residual']), 1e-6)
+
+    def test_full_grid_frame_and_velocity_export(self):
+        s = self.solver()
+        x = np.arange(64)*2*np.pi/64
+        omega = np.broadcast_to(np.cos(3*x), (64, 64))
+        s.w = s.fft(omega)
+        before = s.w.copy()
+        rng_before = repr(s.rng.bit_generator.state)
+        with tempfile.TemporaryDirectory() as directory:
+            meta = snapshot(s, directory)
+            planes = np.fromfile(Path(directory)/'frame-0000.bin', dtype='<f4').reshape(3, 64, 64)
+        self.assertEqual(meta['n'], 64)
+        np.testing.assert_allclose(planes[0], omega, atol=3e-8)
+        np.testing.assert_allclose(planes[1], 0, atol=1e-14)
+        np.testing.assert_allclose(planes[2], np.broadcast_to(np.sin(3*x)/3, (64, 64)), atol=3e-8)
+        np.testing.assert_array_equal(before, s.w)
+        self.assertEqual(rng_before, repr(s.rng.bit_generator.state))
 
 
 if __name__ == '__main__':

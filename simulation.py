@@ -147,7 +147,27 @@ class Solver:
                     noise_enstrophy=float(self.ledger[2]), damping_enstrophy=float(self.ledger[3]))
 
 
-def run(c):
+def snapshot(solver, directory=None, index=0):
+    """Export the unfiltered full grid; this never mutates solver state or RNG."""
+    omega = solver.real(solver.w)
+    u, v = solver.velocity(solver.w)
+    frame = dict(t=float(solver.elapsed), n=solver.c.n,
+                 vorticity_max=float(np.max(abs(omega))),
+                 speed_max=float(np.max(np.hypot(u, v))))
+    if directory is None:
+        frame.update(values=omega.tolist(), u=u.tolist(), v=v.tolist())
+    else:
+        directory = Path(directory)
+        directory.mkdir(parents=True, exist_ok=True)
+        name = f'frame-{index:04d}.bin'
+        # Three row-major little-endian float32 planes: omega, ux, uy.
+        # Only display data use float32; solver state/diagnostics remain float64.
+        np.stack((omega, u, v)).astype('<f4').tofile(directory / name)
+        frame['url'] = 'frames/' + name
+    return frame
+
+
+def run(c, frame_directory=None):
     solver = Solver(c)
     start = time.monotonic()
     samples, frames = [], []
@@ -160,8 +180,7 @@ def run(c):
             if solver.elapsed + 1e-9 >= next_sample:
                 next_sample += c.sample_interval
         if solver.elapsed + 1e-9 >= next_frame or solver.elapsed + 1e-9 >= c.duration:
-            stride = max(1, c.n // 64)
-            frames.append(dict(t=float(solver.elapsed), values=np.round(solver.real(solver.w)[::stride, ::stride], 5).tolist()))
+            frames.append(snapshot(solver, frame_directory, len(frames)))
             next_frame += c.frame_interval
         if solver.elapsed + 1e-9 >= c.duration:
             break
@@ -194,7 +213,7 @@ def run(c):
                    inverse_range_mean_flux=float(np.mean(np.array(avg['energy_flux'])[inverse])) if inverse.any() else None,
                    stationarity='Not certified: assess histories and repeat with longer averaging.',
                    expected_energy_injection=c.epsilon, expected_enstrophy_injection=float(solver.eta))
-    return dict(schema_version=1, generated_at=datetime.now(timezone.utc).isoformat(),
+    return dict(schema_version=2, generated_at=datetime.now(timezone.utc).isoformat(),
                 config=asdict(c), summary=summary, k=k.tolist(),
                 flux_k=(k + solver.dk / 2).tolist(), complete_shell_max=float((c.n / 3 - 1) * solver.dk),
                 samples=samples, frames=frames, average=avg)
@@ -205,9 +224,9 @@ def main():
     parser.add_argument('--config', default='config.json')
     parser.add_argument('--output', default='site')
     args = parser.parse_args()
-    data = run(Config(**json.loads(Path(args.config).read_text())))
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
+    data = run(Config(**json.loads(Path(args.config).read_text())), out / 'frames')
     for src in Path(__file__).parent.joinpath('web').iterdir():
         shutil.copy2(src, out / src.name)
     (out / 'results.json').write_text(json.dumps(data, separators=(',', ':'), allow_nan=False))
