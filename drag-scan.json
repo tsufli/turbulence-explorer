@@ -1,9 +1,10 @@
 {
+  "name": "drag scan 2",
   "overrides": {
     "n": 128,
     "alpha_right": null,
-    "duration": 300,
-    "average_after": 150,
+    "duration": 800,
+    "average_after": 600,
     "sample_interval": 1,
     "frame_interval": 10,
     "seed": 42
@@ -11,38 +12,43 @@
   "runs": [
     {
       "index": 1,
-      "name": "drag scan 1",
-      "alpha": 0.03
+      "name": "drag scan 2 \u2014 run 1",
+      "alpha": 0.008
     },
     {
       "index": 2,
-      "name": "drag scan 2",
-      "alpha": 0.020438762071738836
+      "name": "drag scan 2 \u2014 run 2",
+      "alpha": 0.009
     },
     {
       "index": 3,
-      "name": "drag scan 3",
-      "alpha": 0.013924766500838338
+      "name": "drag scan 2 \u2014 run 3",
+      "alpha": 0.01
     },
     {
       "index": 4,
-      "name": "drag scan 4",
-      "alpha": 0.009486832980505138
+      "name": "drag scan 2 \u2014 run 4",
+      "alpha": 0.011
     },
     {
       "index": 5,
-      "name": "drag scan 5",
-      "alpha": 0.006463304070095652
+      "name": "drag scan 2 \u2014 run 5",
+      "alpha": 0.012
     },
     {
       "index": 6,
-      "name": "drag scan 6",
-      "alpha": 0.004403397802866208
+      "name": "drag scan 2 \u2014 run 6",
+      "alpha": 0.013
     },
     {
       "index": 7,
-      "name": "drag scan 7",
-      "alpha": 0.003
+      "name": "drag scan 2 \u2014 run 7",
+      "alpha": 0.014
+    },
+    {
+      "index": 8,
+      "name": "drag scan 2 \u2014 run 8",
+      "alpha": 0.015
     }
   ]
 }

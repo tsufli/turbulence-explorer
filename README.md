@@ -50,11 +50,15 @@ Edit `config.json` and commit, or choose a workflow preset with optional JSON ov
 
 There is no forcing correlation time parameter: this implementation is **white in time**, with Gaussian amplitudes and a top-hat radial covariance in Fourier space, not a Gaussian spatial covariance. Initial velocity is zero. Mean vorticity remains zero; spatial drag can generate mean velocity. All quantities use the nondimensional units chosen by these parameters.
 
-## Drag scan 1–7
+## Drag scans
 
-The **Drag scan** workflow runs seven independent, uniform-drag experiments at 128², T=300, averaging 150–300. Drag decreases logarithmically from 0.03 to 0.003. All runs start from zero with seed 42 and otherwise use the same physical parameters. Explicit `alpha_right: null` disables spatial drag. Runs are named `drag scan 1` through `drag scan 7`, and each is preserved separately in the archive. Three simulations run concurrently; all completed outputs are published after the batch finishes. This short scan compares transient vortex formation, not stationary transition thresholds.
+The **Drag scan** workflow runs the batch in `drag-scan.json`, with three independent simulations at a time. Each starts from zero with seed 42, uses 128² and explicitly sets `alpha_right: null` for uniform friction. Every completed experiment is preserved separately under its own name and URL; previous batches remain available.
 
-The scan definition is in `drag-scan.json`. Run **Actions → Drag scan → Run workflow** to repeat it.
+Current batch, **drag scan 2**: eight drags 0.008, 0.009, 0.010, 0.011, 0.012, 0.013, 0.014, 0.015; T=800, averaging 600–800. Archive names are `drag scan 2 — run 1` through `drag scan 2 — run 8`, in increasing drag order. Other physical parameters match the first scan.
+
+The original seven-run scan definition is preserved in `drag-scan-1.json` (0.03 down to 0.003, T=300, average 150–300). Existing results retain their original names. These scans compare finite-time vortex formation, not certified stationary transition thresholds.
+
+Use **Actions → Drag scan → Run workflow** to repeat the current batch.
 
 ## Spatial drag experiment
 

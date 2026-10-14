@@ -77,7 +77,7 @@ def main():
     candidates = {}
     for artifact in artifacts:
         workflow_id = str(artifact['workflow_run']['id'])
-        match = re.fullmatch(r'experiment-result(?:-scan-([1-7]))?', artifact['name'])
+        match = re.fullmatch(r'experiment-result(?:-scan-([1-9][0-9]*))?', artifact['name'])
         if (not match and artifact['name'] != 'github-pages') or artifact['expired']:
             continue
         if run_id and workflow_id != run_id:
