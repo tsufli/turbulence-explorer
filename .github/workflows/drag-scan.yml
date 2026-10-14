@@ -1,0 +1,110 @@
+name: Drag scan
+run-name: drag scan 1–7 · uniform drag · T=300
+
+on:
+  push:
+    branches: [main]
+    paths: [drag-scan.json, ".github/workflows/drag-scan.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: turbulence-drag-scan
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Verify solver
+        run: python -m unittest discover -s tests -v
+      - name: Prepare seven independent experiments
+        id: matrix
+        run: |
+          python - <<'PY'
+          import json, os, subprocess
+          scan = json.load(open('drag-scan.json'))
+          include = []
+          for run in scan['runs']:
+              overrides = dict(scan['overrides'], alpha=run['alpha'])
+              env = dict(os.environ, SIM_PRESET='standard', SIM_OVERRIDES=json.dumps(overrides))
+              subprocess.run(['python', 'prepare_config.py'], env=env, check=True)
+              include.append(dict(run, overrides=overrides))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('matrix=' + json.dumps({'include':include}) + '\n')
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write('## Uniform drag scan · 128² · T=300 · average 150–300\n\n')
+              for run in include:
+                  f.write(f"- {run['name']}: α={run['alpha']:.8g}\n")
+          PY
+
+  simulate:
+    needs: prepare
+    name: ${{ matrix.name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix: ${{ fromJSON(needs.prepare.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - name: Prepare uniform-drag configuration
+        env:
+          SIM_PRESET: standard
+          SIM_OVERRIDES: ${{ toJSON(matrix.overrides) }}
+        run: python prepare_config.py
+      - name: Run simulation
+        env:
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: python simulation.py --config effective-config.json --output site
+      - name: Name experiment
+        env:
+          EXPERIMENT_NAME: ${{ matrix.name }}
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          path = Path('site/results.json')
+          data = json.loads(path.read_text())
+          data['experiment_name'] = os.environ['EXPERIMENT_NAME']
+          path.write_text(json.dumps(data, separators=(',', ':'), allow_nan=False))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write(f"## {data['experiment_name']}\n\n")
+              f.write('```json\n'+json.dumps(data['config'], indent=2)+'\n```\n')
+              f.write('```json\n'+json.dumps(data['summary'], indent=2)+'\n```\n')
+          PY
+      - name: Save experiment output
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment-result-scan-${{ matrix.index }}
+          path: site
+          retention-days: 90
+
+  publish:
+    needs: [prepare, simulate]
+    if: ${{ !cancelled() && needs.prepare.result == 'success' }}
+    permissions:
+      contents: write
+      actions: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/archive.yml
+    with:
+      run_id: ${{ github.run_id }}

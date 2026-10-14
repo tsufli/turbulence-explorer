@@ -50,6 +50,12 @@ Edit `config.json` and commit, or choose a workflow preset with optional JSON ov
 
 There is no forcing correlation time parameter: this implementation is **white in time**, with Gaussian amplitudes and a top-hat radial covariance in Fourier space, not a Gaussian spatial covariance. Initial velocity is zero. Mean vorticity remains zero; spatial drag can generate mean velocity. All quantities use the nondimensional units chosen by these parameters.
 
+## Drag scan 1–7
+
+The **Drag scan** workflow runs seven independent, uniform-drag experiments at 128², T=300, averaging 150–300. Drag decreases logarithmically from 0.03 to 0.003. All runs start from zero with seed 42 and otherwise use the same physical parameters. Explicit `alpha_right: null` disables spatial drag. Runs are named `drag scan 1` through `drag scan 7`, and each is preserved separately in the archive. Three simulations run concurrently; all completed outputs are published after the batch finishes. This short scan compares transient vortex formation, not stationary transition thresholds.
+
+The scan definition is in `drag-scan.json`. Run **Actions → Drag scan → Run workflow** to repeat it.
+
 ## Spatial drag experiment
 
 Set `alpha_right` to enable left/right half-box friction: `alpha` applies for 0 ≤ x < L/2 and `alpha_right` for L/2 ≤ x < L. Omit it or set it to `null` for uniform drag. Current experiment: 128², left 0.003, right 0.03, T=800, averaging 400–800; all other physical parameters are unchanged.

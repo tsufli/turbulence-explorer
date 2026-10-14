@@ -65,7 +65,7 @@ async function boot(){try{
   const selected=requested?runs.find(r=>r.id===requested):runs[0];
   if(!selected)throw new Error('Experiment not found in archive');
   const picker=$('experiment');picker.replaceChildren();
-  runs.forEach(r=>{const option=document.createElement('option');option.value=r.id;option.textContent=`${new Date(r.generated_at).toLocaleDateString()} · ${r.config.n}² · ${r.config.alpha_right==null?`α=${r.config.alpha}`:`α L/R=${r.config.alpha}/${r.config.alpha_right}`} · T=${r.config.duration} · seed=${r.config.seed} · #${r.id}`;picker.appendChild(option);});
+  runs.forEach(r=>{const option=document.createElement('option');option.value=r.id;option.textContent=`${r.name?r.name+' · ':''}${new Date(r.generated_at).toLocaleDateString()} · ${r.config.n}² · ${r.config.alpha_right==null?`α=${r.config.alpha}`:`α L/R=${r.config.alpha}/${r.config.alpha_right}`} · T=${r.config.duration} · seed=${r.config.seed} · #${r.id}`;picker.appendChild(option);});
   picker.value=selected.id;picker.disabled=false;
   picker.addEventListener('change',()=>{const url=new URL(location.href);url.searchParams.set('run',picker.value);location.assign(url.href);});
   resultBase=new URL(`runs/${selected.id}/`,location.href);
@@ -78,7 +78,7 @@ async function boot(){try{
  $('color-min').textContent='−'+fmt(data.colorLimit);$('color-max').textContent='+'+fmt(data.colorLimit);
  $('grid').textContent=`${data.config.n} × ${data.config.n}`;$('forcing').textContent=`kf = ${data.config.kf}`;$('flux').textContent=data.summary.inverse_range_mean_flux===null?'N/A':fmt(data.summary.inverse_range_mean_flux);
  $('time').max=data.frames.length-1;$('time').disabled=false;$('play').disabled=false;frameIndex=data.frames.length-1;$('time').value=frameIndex;
- $('status').textContent=`Computed run · averaged t = ${data.summary.average_start.toFixed(1)}–${data.summary.average_end.toFixed(1)} · stationarity not certified`;
+ $('status').textContent=`${data.experiment_name||'Computed run'} · averaged t = ${data.summary.average_start.toFixed(1)}–${data.summary.average_end.toFixed(1)} · stationarity not certified`;
  const labels={n:'Grid N',length:'Box side L',nu:'Viscosity ν',alpha:data.config.alpha_right==null?'Linear drag α':'Left-half drag α',alpha_right:'Right-half drag α',epsilon:'Mean injection ε',kf:'Forcing wavenumber kf',bandwidth:'Full forcing bandwidth',dt:'Maximum timestep',duration:'Simulation time',average_after:'Average starts at',sample_interval:'Diagnostic interval',frame_interval:'Frame interval',seed:'Random seed'};
  const tbody=$('parameters').querySelector('tbody');Object.entries(data.config).forEach(([key,val])=>{const row=document.createElement('tr');for(const text of [labels[key]||key,val===null?'—':typeof val==='number'?fmt(val):val]){const cell=document.createElement('td');cell.textContent=text;row.appendChild(cell);}tbody.appendChild(row);});
  const checks=[['Maximum advective CFL',data.summary.max_cfl],['Energy budget residual',data.summary.energy_budget_residual],['Enstrophy budget residual',data.summary.enstrophy_budget_residual],['Max |Σ nonlinear energy transfer|',Math.max(...data.samples.map(s=>Math.abs(s.transfer_energy_sum)))],['Max |Σ nonlinear enstrophy transfer|',Math.max(...data.samples.map(s=>Math.abs(s.transfer_enstrophy_sum)))]];

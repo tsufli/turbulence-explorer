@@ -76,19 +76,22 @@ def main():
         page += 1
     candidates = {}
     for artifact in artifacts:
-        rid = str(artifact['workflow_run']['id'])
-        if artifact['name'] not in ('github-pages', 'experiment-result') or artifact['expired']:
+        workflow_id = str(artifact['workflow_run']['id'])
+        match = re.fullmatch(r'experiment-result(?:-scan-([1-7]))?', artifact['name'])
+        if (not match and artifact['name'] != 'github-pages') or artifact['expired']:
             continue
-        if run_id and rid != run_id:
+        if run_id and workflow_id != run_id:
             continue
+        rid = workflow_id + (f'-scan-{match[1]}' if match and match[1] else '')
         if (out / 'runs' / rid / 'results.json').exists():
             continue
-        if rid not in candidates or artifact['name'] == 'experiment-result':
+        if rid not in candidates or match:
             candidates[rid] = artifact
     for rid, artifact in candidates.items():
-        run = json.load(api(f'actions/runs/{rid}'))
-        # A called publisher imports the output while its parent run is in progress.
-        if rid != run_id and run['conclusion'] != 'success':
+        workflow_id = str(artifact['workflow_run']['id'])
+        run = json.load(api(f'actions/runs/{workflow_id}'))
+        # A called publisher imports outputs while its parent run is in progress.
+        if workflow_id != run_id and run['conclusion'] != 'success':
             continue
         payload = api(f'actions/artifacts/{artifact["id"]}/zip').read()
         try:
@@ -100,12 +103,14 @@ def main():
             raise
         metadata = dict(id=rid, generated_at=data['generated_at'], config=data['config'],
                         run_url=run['html_url'], source_sha=run['head_sha'])
+        if data.get('experiment_name'):
+            metadata['name'] = data['experiment_name']
         (out / 'runs' / rid / 'metadata.json').write_text(json.dumps(metadata, indent=2) + '\n')
         print(f'Preserved experiment {rid}')
-    if run_id and not (out / 'runs' / run_id / 'results.json').exists():
-        raise RuntimeError('The new experiment could not be archived')
+    if run_id and not any((out / 'runs').glob(f'{run_id}*/results.json')):
+        raise RuntimeError('The new experiment outputs could not be archived')
     runs = [json.loads(path.read_text()) for path in (out / 'runs').glob('*/metadata.json')]
-    runs.sort(key=lambda r: (r['generated_at'], int(r['id'])), reverse=True)
+    runs.sort(key=lambda r: (r['generated_at'], r['id']), reverse=True)
     if not runs:
         raise RuntimeError('No saved experiment or recoverable output found; site left unchanged')
     (out / 'archive.json').write_text(json.dumps(dict(runs=runs), indent=2) + '\n')
