@@ -8,10 +8,18 @@ Vorticity uses every point of the simulation grid without downsampling or scale 
 
 1. Create a **public** repository called `turbulence-explorer` and upload these files, including `.github/workflows/simulate.yml`. Use `main` as the default branch.
 2. In **Settings → Pages → Build and deployment → Source**, select **GitHub Actions**.
-3. Open **Actions → Simulate and publish → Run workflow**. The first push to `main` also starts a standard run.
+3. Open **Actions → Simulate and publish → Run workflow**. Changes to simulation/configuration files on `main` also start a run; dashboard edits only republish the archive.
 4. When both jobs finish, the deployment link appears in the run and in Settings → Pages. Open that link to explore results without downloading anything.
 
-No tokens, API keys, email credentials or paid services are needed by the workflow. The deployed site is public. It displays the latest successful run; failed runs leave the prior site intact. Results are generated inside Actions and deployed as a Pages artifact, never committed to the source branch. There is no live streaming during the run.
+No tokens, API keys, email credentials or paid services are needed by the workflow. The deployed site is public. It opens the latest successful experiment. Use **Saved experiment** to revisit previous results; the URL with `?run=RUN_ID` is a permanent link. Results and full-resolution frames are committed to the separate `experiment-archive` branch, never to the source branch. Failed simulations leave saved experiments intact. There is no live streaming during the run.
+
+## Experiment archive
+
+Each successful run saves its parameters, diagnostics and full-resolution frames under its unique GitHub run ID. Results remain in the `experiment-archive` branch without an artifact expiration date. The first archive publication imports any previous Pages outputs that are still available; expired outputs cannot be recovered from GitHub artifacts.
+
+To experiment without editing the defaults, open **Actions → Simulate and publish → Run workflow**, choose `standard`, and enter JSON overrides, for example `{"alpha":0.01,"duration":200,"average_after":100}`. Each run starts from zero and adds a new entry. The original experiments remain selectable. The **New experiment** link on the dashboard opens this workflow.
+
+**Publish experiment archive** can also be run manually to refresh the dashboard or import available outputs without running the solver.
 
 ## Change parameters
 

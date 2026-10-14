@@ -1,0 +1,74 @@
+name: Publish experiment archive
+
+on:
+  push:
+    branches: [main]
+    paths: ["web/**", archive.py, ".github/workflows/archive.yml"]
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      run_id:
+        type: string
+        default: ''
+
+permissions:
+  contents: write
+  actions: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: turbulence-pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Load permanent archive
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if git ls-remote --exit-code --heads origin experiment-archive; then
+            git fetch origin experiment-archive
+            git worktree add archive-store FETCH_HEAD
+          else
+            git worktree add --detach archive-store
+            cd archive-store
+            git checkout --orphan experiment-archive
+            git rm -rf .
+          fi
+      - name: Preserve results and build dashboard
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ARCHIVE_RUN_ID: ${{ inputs.run_id || '' }}
+        run: python archive.py --output archive-store
+      - name: Commit permanent results
+        run: |
+          cd archive-store
+          git add .
+          if ! git diff --cached --quiet; then
+            git commit -m 'Preserve experiment results and refresh dashboard'
+            git push origin HEAD:experiment-archive
+          fi
+      - name: Prepare clean deployment directory
+        run: |
+          mkdir published-site
+          tar --exclude=.git -C archive-store -cf - . | tar -C published-site -xf -
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: published-site
+      - name: Publish archive
+        id: deployment
+        uses: actions/deploy-pages@v4

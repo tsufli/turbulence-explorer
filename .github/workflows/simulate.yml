@@ -3,6 +3,7 @@ name: Simulate and publish
 on:
   push:
     branches: [main]
+    paths: [config.json, simulation.py, prepare_config.py, requirements.txt, "tests/**"]
   workflow_dispatch:
     inputs:
       preset:
@@ -19,7 +20,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: turbulence-pages
+  group: turbulence-simulation
   cancel-in-progress: false
 
 jobs:
@@ -62,23 +63,20 @@ jobs:
           name: run-config
           path: effective-config.json
           retention-days: 7
-      - name: Upload Pages site
-        uses: actions/upload-pages-artifact@v4
+      - name: Save experiment output
+        uses: actions/upload-artifact@v4
         with:
+          name: experiment-result
           path: site
+          retention-days: 90
 
-  deploy:
+  publish:
     needs: simulate
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
     permissions:
+      contents: write
+      actions: read
       pages: write
       id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - uses: actions/configure-pages@v5
-      - name: Publish results
-        id: deployment
-        uses: actions/deploy-pages@v4
+    uses: ./.github/workflows/archive.yml
+    with:
+      run_id: ${{ github.run_id }}
