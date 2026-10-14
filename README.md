@@ -50,6 +50,12 @@ Edit `config.json` and commit, or choose a workflow preset with optional JSON ov
 
 There is no forcing correlation time parameter: this implementation is **white in time**, with Gaussian amplitudes and a top-hat radial covariance in Fourier space, not a Gaussian spatial covariance. Initial velocity is zero. Mean vorticity remains zero; spatial drag can generate mean velocity. All quantities use the nondimensional units chosen by these parameters.
 
+## Compare drag scan 2
+
+Open **Compare drag scan 2** from the dashboard header, or `comparison.html`. All eight saved runs are overlaid on four plots: time-averaged energy spectrum, energy flux, enstrophy flux, and the full energy/enstrophy histories. The first three use t=600–800. Each run has the same color throughout; toggle curves in the legend and hover/tap plots for values. A table links back to each individual experiment and lists averaged measurements.
+
+The comparison is pinned to the eight completed runs from workflow 38549869418. Publishing the page reads their existing archived diagnostics and never runs the solver or changes the experiment data.
+
 ## Drag scans
 
 The **Drag scan** workflow runs the batch in `drag-scan.json`, with three independent simulations at a time. Each starts from zero with seed 42, uses 128² and explicitly sets `alpha_right: null` for uniform friction. Every completed experiment is preserved separately under its own name and URL; previous batches remain available.

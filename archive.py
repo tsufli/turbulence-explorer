@@ -116,11 +116,31 @@ def main():
     (out / 'archive.json').write_text(json.dumps(dict(runs=runs), indent=2) + '\n')
     for source in Path('web').iterdir():
         shutil.copy2(source, out / source.name)
-    index = (out / 'index.html').read_text()
-    for name in ('style.css', 'app.js'):
-        version = hashlib.sha256((out / name).read_bytes()).hexdigest()[:12]
-        index = index.replace(f'"{name}"', f'"{name}?v={version}"')
-    (out / 'index.html').write_text(index)
+    comparison_manifest = json.loads(Path('web/comparison-runs.json').read_text())
+    comparison = dict(title=comparison_manifest['title'], runs=[], missing=[])
+    for rid in comparison_manifest['run_ids']:
+        path = out / 'runs' / rid / 'results.json'
+        if not path.exists():
+            comparison['missing'].append(rid)
+            continue
+        d = json.loads(path.read_text())
+        length = sum(k <= d['complete_shell_max'] for k in d['k'])
+        comparison['runs'].append(dict(
+            id=rid, name=d['experiment_name'], config=d['config'], summary=d['summary'],
+            k=d['k'][:length], flux_k=d['flux_k'][:length],
+            average=dict(spectrum=d['average']['spectrum'][:length],
+                         energy_flux=d['average']['energy_flux'][:length],
+                         enstrophy_flux=d['average']['enstrophy_flux'][:length],
+                         energy=d['average']['energy'], enstrophy=d['average']['enstrophy']),
+            samples=[dict(t=s['t'], energy=s['energy'], enstrophy=s['enstrophy']) for s in d['samples']]))
+    (out / 'comparison-data.json').write_text(json.dumps(comparison, separators=(',', ':'), allow_nan=False))
+    for html in out.glob('*.html'):
+        content = html.read_text()
+        for name in ('style.css', 'app.js', 'comparison.js'):
+            if (out / name).exists():
+                version = hashlib.sha256((out / name).read_bytes()).hexdigest()[:12]
+                content = content.replace(f'"{name}"', f'"{name}?v={version}"')
+        html.write_text(content)
     (out / '.nojekyll').touch()
     with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as summary:
         summary.write(f'## Saved experiments\n\n{len(runs)} experiments preserved in `experiment-archive`.\n\n')
