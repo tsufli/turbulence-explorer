@@ -17,7 +17,7 @@ No tokens, API keys, email credentials or paid services are needed by the workfl
 
 Each successful run saves its parameters, diagnostics and full-resolution frames under its unique GitHub run ID. Results remain in the `experiment-archive` branch without an artifact expiration date. The first archive publication imports any previous Pages outputs that are still available; expired outputs cannot be recovered from GitHub artifacts.
 
-To experiment without editing the defaults, open **Actions → Simulate and publish → Run workflow**, choose `standard`, and enter JSON overrides, for example `{"alpha":0.01,"duration":200,"average_after":100}`. Each run starts from zero and adds a new entry. The original experiments remain selectable. The **New experiment** link on the dashboard opens this workflow.
+To experiment without editing the defaults, open **Actions → Simulate and publish → Run workflow**, choose `standard`, and enter JSON overrides, for example `{"alpha":0.01,"alpha_right":null,"duration":200,"average_after":100}`. Each run starts from zero and adds a new entry. The original experiments remain selectable. The **New experiment** link on the dashboard opens this workflow.
 
 **Publish experiment archive** can also be run manually to refresh the dashboard or import available outputs without running the solver.
 
@@ -26,7 +26,7 @@ To experiment without editing the defaults, open **Actions → Simulate and publ
 Edit `config.json` and commit, or choose a workflow preset with optional JSON overrides. Example:
 
 ```json
-{"nu":0.001,"alpha":0.02,"epsilon":0.1,"seed":7,"duration":150,"average_after":75}
+{"nu":0.001,"alpha":0.02,"alpha_right":null,"epsilon":0.1,"seed":7,"duration":150,"average_after":75}
 ```
 
 | Parameter | Default | Meaning |
@@ -34,20 +34,29 @@ Edit `config.json` and commit, or choose a workflow preset with optional JSON ov
 | `n` | 128 | Square grid; choices 64, 128, 256, 512 |
 | `length` | 2π | Side of periodic square box; kmin = 2π/L |
 | `nu` | 0.0005 | Ordinary viscosity, no hyperviscosity |
-| `alpha` | 0.003 | Linear drag on all retained modes |
+| `alpha` | 0.003 | Uniform drag, or left-half drag when `alpha_right` is set |
+| `alpha_right` | 0.03 | Right-half drag; `null` selects uniform drag |
 | `epsilon` | 0.1 | Expected kinetic energy injection per unit time |
 | `kf` | 16 | Forcing ring center in physical wavenumber |
 | `bandwidth` | 2 | Full radial width of forcing ring |
 | `dt` | 0.01 | Maximum timestep; advective CFL target 0.25 |
-| `duration` | 1200 | End time |
-| `average_after` | 600 | Start of trapezoidal time averages |
+| `duration` | 800 | End time |
+| `average_after` | 400 | Start of trapezoidal time averages |
 | `sample_interval` | 1 | Spectrum/flux/history sampling |
 | `frame_interval` | 10 | Vorticity snapshot sampling |
 | `seed` | 42 | Reproducible Gaussian random generator |
 
 `quick`: 64², kf=8, T=30, averaging after 15. `standard`: values in `config.json`. `extended`: 256², kf=32, ν=0.00015, T=200, averaging after 100. Overrides apply after presets. Changing box size changes physical mode spacing; keep the forcing band inside the dealiased disk. The code validates this.
 
-There is no forcing correlation time parameter: this implementation is **white in time**, with Gaussian amplitudes and a top-hat radial covariance in Fourier space, not a Gaussian spatial covariance. Initial velocity is zero. The zero mode remains zero. All quantities use the nondimensional units chosen by these parameters.
+There is no forcing correlation time parameter: this implementation is **white in time**, with Gaussian amplitudes and a top-hat radial covariance in Fourier space, not a Gaussian spatial covariance. Initial velocity is zero. Mean vorticity remains zero; spatial drag can generate mean velocity. All quantities use the nondimensional units chosen by these parameters.
+
+## Spatial drag experiment
+
+Set `alpha_right` to enable left/right half-box friction: `alpha` applies for 0 ≤ x < L/2 and `alpha_right` for L/2 ≤ x < L. Omit it or set it to `null` for uniform drag. Current experiment: 128², left 0.003, right 0.03, T=800, averaging 400–800; all other physical parameters are unchanged.
+
+This is a velocity force −α(x)u, so its full curl is used, including interface effects. Spatial friction can generate a box-mean velocity, which is evolved and included in total energy and the k=0 spectral shell. The drag step has exact Fourier coefficients; padded products give its Galerkin projection without aliasing. Spatial drag is integrated alongside advection with RK4, between viscosity/forcing OU half-steps. The original uniform-drag integration path is retained. Energy flux measures nonlinear transfer only, excluding the drag contribution. Drag removes kinetic energy; its contribution to enstrophy need not be positive near the interfaces.
+
+To return to uniform drag using workflow overrides, include `"alpha_right":null`.
 
 ## Numerical method
 

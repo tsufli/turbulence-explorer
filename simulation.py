@@ -1,7 +1,7 @@
 """Dealiased 2D Navier–Stokes with additive Gaussian white-in-time forcing.
 
 All FFTs use norm='forward': spatial mean energy = sum of modal energies.
-The domain is periodic, with zero mean velocity and zero mean vorticity.
+The domain is periodic, with zero mean vorticity. Spatial drag can generate mean velocity.
 """
 from dataclasses import dataclass, asdict
 import argparse
@@ -22,6 +22,7 @@ class Config:
     length: float = 2 * np.pi
     nu: float = 0.0005
     alpha: float = 0.03
+    alpha_right: float | None = None  # None: uniform; otherwise left/right halves
     epsilon: float = 0.1
     kf: float = 16.0
     bandwidth: float = 2.0
@@ -46,6 +47,10 @@ class Solver:
             raise ValueError('Lengths, time intervals and forcing scales must be positive')
         if min(c.nu, c.alpha, c.epsilon, c.average_after) < 0 or c.average_after >= c.duration:
             raise ValueError('Use nonnegative dissipation/forcing and 0 <= average_after < duration')
+        if c.alpha_right is not None and (not np.isfinite(c.alpha_right) or c.alpha_right < 0):
+            raise ValueError('Right-half drag must be finite and nonnegative')
+        self.spatial_drag = c.alpha_right is not None
+        self.mean_velocity = np.zeros(2)
         self.dk = 2 * np.pi / c.length
         qx = np.fft.rfftfreq(c.n) * c.n
         qy = np.fft.fftfreq(c.n) * c.n
@@ -62,7 +67,20 @@ class Solver:
             raise ValueError('Forcing band must fit inside the complete dealiased disk')
         self.shell = np.floor(self.radius / self.dk + 0.5).astype(int)
         self.nshell = self.shell.max() + 1
-        self.decay_rate = c.nu * self.k2 + c.alpha
+        self.decay_rate = c.nu * self.k2 + (0 if self.spatial_drag else c.alpha)
+        if self.spatial_drag:
+            # Exact Fourier coefficients of the periodic left/right step.
+            # Only |m| <= 2*cut can couple two retained velocity modes.
+            # Products on a doubled grid therefore recover the Galerkin
+            # projection without sampling/aliasing the discontinuity.
+            self.drag_n = 2 * c.n
+            self.drag_rows = (np.fft.fftfreq(c.n) * c.n).astype(int) % self.drag_n
+            cut = int(np.ceil(c.n / 3)) - 1
+            alpha_hat = np.zeros((self.drag_n, self.drag_n // 2 + 1), complex)
+            alpha_hat[0, 0] = (c.alpha + c.alpha_right) / 2
+            m = np.arange(1, 2 * cut + 1)
+            alpha_hat[0, m] = (c.alpha - c.alpha_right) * (1 - (-1.)**m) / (2j * np.pi * m)
+            self.drag_profile = irfft2(alpha_hat, s=(self.drag_n, self.drag_n), norm='forward')
         # A real-space unit Gaussian FFT has E|q_hat|² = 1/n².
         # Choose covariance, rather than normalizing individual realizations.
         s = np.sum(self.weights * self.band * self.inv)
@@ -80,17 +98,45 @@ class Solver:
     def real(self, a):
         return irfft2(a, s=(self.c.n, self.c.n), norm='forward')
 
-    def velocity(self, w):
+    def velocity(self, w, mean=None):
         # omega = dx(v)-dy(u); u_hat=i ky omega_hat/k², v_hat=-i kx omega_hat/k².
-        return self.real(1j * self.ky * self.inv * w), self.real(-1j * self.kx * self.inv * w)
+        if mean is None:
+            mean = self.mean_velocity
+        return self.real(1j * self.ky * self.inv * w) + mean[0], self.real(-1j * self.kx * self.inv * w) + mean[1]
 
-    def nonlinear(self, w):
-        u, v = self.velocity(w)
+    def nonlinear(self, w, mean=None):
+        u, v = self.velocity(w, mean)
         return -self.fft(u * self.real(1j * self.kx * w) + v * self.real(1j * self.ky * w)) * self.mask
 
-    def totals(self, w):
+    def totals(self, w, mean=None):
         a = self.weights * abs(w)**2 * 0.5
-        return np.array([np.sum(a * self.inv), np.sum(a)])
+        if mean is None:
+            mean = self.mean_velocity
+        return np.array([np.sum(a * self.inv) + 0.5 * np.dot(mean, mean), np.sum(a)])
+
+    def drag_rhs(self, w, mean=None):
+        """curl(-alpha(x) velocity), projected onto retained incompressible modes."""
+        if mean is None:
+            mean = self.mean_velocity
+        shape = (self.drag_n, self.drag_n // 2 + 1)
+        uh, vh = np.zeros(shape, complex), np.zeros(shape, complex)
+        uh[self.drag_rows, :self.c.n // 2 + 1] = 1j * self.ky * self.inv * w
+        vh[self.drag_rows, :self.c.n // 2 + 1] = -1j * self.kx * self.inv * w
+        uh[0, 0], vh[0, 0] = mean
+        u = irfft2(uh, s=(self.drag_n, self.drag_n), norm='forward')
+        v = irfft2(vh, s=(self.drag_n, self.drag_n), norm='forward')
+        fu = rfft2(-self.drag_profile * u, norm='forward')
+        fv = rfft2(-self.drag_profile * v, norm='forward')
+        dw = (1j * self.kx * fv[self.drag_rows, :self.c.n // 2 + 1]
+              - 1j * self.ky * fu[self.drag_rows, :self.c.n // 2 + 1]) * self.mask
+        dm = np.array([fu[0, 0].real, fv[0, 0].real])
+        rate_z = self.weights * np.real(np.conj(w) * dw)
+        dissipation = np.array([-np.sum(rate_z * self.inv) - np.dot(mean, dm), -np.sum(rate_z)])
+        return dw, dm, dissipation
+
+    def spatial_rhs(self, w, mean):
+        dw, dm, dissipation = self.drag_rhs(w, mean)
+        return self.nonlinear(w, mean) + dw, dm, dissipation
 
     def linear_noise(self, h):
         before = self.totals(self.w)
@@ -117,10 +163,20 @@ class Solver:
             raise RuntimeError(f'CFL={cfl:.3f} exceeds 0.65; reduce dt')
         self.linear_noise(h / 2)
         w0 = self.w.copy()
-        k1 = self.nonlinear(w0)
-        k2 = self.nonlinear(w0 + h * k1 / 2)
-        k3 = self.nonlinear(w0 + h * k2 / 2)
-        k4 = self.nonlinear(w0 + h * k3)
+        if self.spatial_drag:
+            m0 = self.mean_velocity.copy()
+            k1, m1, d1 = self.spatial_rhs(w0, m0)
+            k2, m2, d2 = self.spatial_rhs(w0 + h*k1/2, m0 + h*m1/2)
+            k3, m3, d3 = self.spatial_rhs(w0 + h*k2/2, m0 + h*m2/2)
+            k4, m4, d4 = self.spatial_rhs(w0 + h*k3, m0 + h*m3)
+            self.mean_velocity = m0 + h*(m1 + 2*m2 + 2*m3 + m4)/6
+            dissipated = h*(d1 + 2*d2 + 2*d3 + d4)/6
+            self.ledger += [0, dissipated[0], 0, dissipated[1]]
+        else:
+            k1 = self.nonlinear(w0)
+            k2 = self.nonlinear(w0 + h * k1 / 2)
+            k3 = self.nonlinear(w0 + h * k2 / 2)
+            k4 = self.nonlinear(w0 + h * k3)
         self.w = (w0 + h * (k1 + 2*k2 + 2*k3 + k4) / 6) * self.mask
         self.linear_noise(h / 2)
         if not np.isfinite(self.w).all():
@@ -135,13 +191,17 @@ class Solver:
         transfer_z = self.weights * np.real(np.conj(self.w) * self.nonlinear(self.w))
         transfer_e = transfer_z * self.inv
         e, z = self.totals(self.w)
+        spectrum = self.shells(a * self.inv) / self.dk
+        spectrum[0] += 0.5 * np.dot(self.mean_velocity, self.mean_velocity) / self.dk
+        drag_dissipation = self.drag_rhs(self.w)[2] if self.spatial_drag else np.zeros(2)
         return dict(t=float(self.elapsed), energy=float(e), enstrophy=float(z),
-                    spectrum=(self.shells(a * self.inv) / self.dk).tolist(),
+                    spectrum=spectrum.tolist(),
+                    mean_velocity=self.mean_velocity.tolist(),
                     enstrophy_spectrum=(self.shells(a) / self.dk).tolist(),
                     energy_flux=(-np.cumsum(self.shells(transfer_e))).tolist(),
                     enstrophy_flux=(-np.cumsum(self.shells(transfer_z))).tolist(),
-                    energy_dissipation=float(np.sum(2 * self.decay_rate * a * self.inv)),
-                    enstrophy_dissipation=float(np.sum(2 * self.decay_rate * a)),
+                    energy_dissipation=float(np.sum(2 * self.decay_rate * a * self.inv) + drag_dissipation[0]),
+                    enstrophy_dissipation=float(np.sum(2 * self.decay_rate * a) + drag_dissipation[1]),
                     transfer_energy_sum=float(transfer_e.sum()),
                     transfer_enstrophy_sum=float(transfer_z.sum()),
                     noise_energy=float(self.ledger[0]), damping_energy=float(self.ledger[1]),
