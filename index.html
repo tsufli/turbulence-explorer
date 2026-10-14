@@ -1,8 +1,8 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>2D Turbulence Explorer</title><link rel="stylesheet" href="style.css?v=12633abadd0c"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>2D Turbulence Explorer</title><link rel="stylesheet" href="style.css?v=50cb48d5e576"></head>
 <body>
-<header><a class="brand" href="#">∿ <span>TURBULENCE LAB</span></a><nav><a id="repo" href="https://github.com/tsufli/turbulence-explorer">Source & runs ↗</a></nav></header>
+<header><a class="brand" href="#">∿ <span>TURBULENCE LAB</span></a><nav><a href="comparison.html">Compare drag scan 2 ↗</a> <a id="repo" href="https://github.com/tsufli/turbulence-explorer">Source & runs ↗</a></nav></header>
 <main>
 <div class="intro"><div><div class="eyebrow">A NUMERICAL EXPERIMENT · 2D NAVIER–STOKES</div><h1>Watch energy<br>change scales.</h1><p>Gaussian forcing. Periodic boundaries. Follow the vortices and measure where the energy goes.</p></div><div class="formula">∂<sub>t</sub>ω + u · ∇ω = ν∇²ω − <span id="equation-drag">αω</span> + f<sub>ω</sub><small>Energy flux Π &lt; 0 → larger scales<br>Enstrophy flux Π<sub>Z</sub> &gt; 0 → smaller scales</small></div></div>
 <section class="experiment-picker" aria-label="Experiment archive"><label for="experiment">Saved experiment</label><select id="experiment" disabled><option>Latest result</option></select><a id="experiment-run" hidden>Run details ↗</a><a id="new-experiment" href="https://github.com/tsufli/turbulence-explorer/actions/workflows/simulate.yml">New experiment ↗</a></section>
