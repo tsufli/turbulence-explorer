@@ -1,0 +1,23 @@
+{
+  "id": "38549869418-scan-1",
+  "generated_at": "2026-10-14T11:05:45.979886+00:00",
+  "config": {
+    "n": 128,
+    "length": 6.283185307179586,
+    "nu": 0.0005,
+    "alpha": 0.008,
+    "alpha_right": null,
+    "epsilon": 0.1,
+    "kf": 16,
+    "bandwidth": 2,
+    "dt": 0.01,
+    "duration": 800,
+    "average_after": 600,
+    "sample_interval": 1,
+    "frame_interval": 10,
+    "seed": 42
+  },
+  "run_url": "https://github.com/tsufli/turbulence-explorer/actions/runs/38549869418",
+  "source_sha": "21637c8ecf5c3edfc5c7da9ed4cc3b3433d1b8d6",
+  "name": "drag scan 2 \u2014 run 1"
+}
