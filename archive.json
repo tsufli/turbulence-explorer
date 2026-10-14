@@ -1,0 +1,109 @@
+{
+  "runs": [
+    {
+      "id": "38379957173",
+      "generated_at": "2026-10-13T11:08:32.154216+00:00",
+      "config": {
+        "n": 128,
+        "length": 6.283185307179586,
+        "nu": 0.0005,
+        "alpha": 0.003,
+        "epsilon": 0.1,
+        "kf": 16,
+        "bandwidth": 2,
+        "dt": 0.01,
+        "duration": 1200,
+        "average_after": 600,
+        "sample_interval": 1,
+        "frame_interval": 10,
+        "seed": 42
+      },
+      "run_url": "https://github.com/tsufli/turbulence-explorer/actions/runs/38379957173",
+      "source_sha": "4ae4db13c302e4d9bc4828c6c0f33e953d12b554"
+    },
+    {
+      "id": "38375144552",
+      "generated_at": "2026-10-13T09:20:22.935728+00:00",
+      "config": {
+        "n": 128,
+        "length": 6.283185307179586,
+        "nu": 0.0005,
+        "alpha": 0.03,
+        "epsilon": 0.1,
+        "kf": 16.0,
+        "bandwidth": 2.0,
+        "dt": 0.01,
+        "duration": 120.0,
+        "average_after": 60.0,
+        "sample_interval": 0.5,
+        "frame_interval": 1.0,
+        "seed": 42
+      },
+      "run_url": "https://github.com/tsufli/turbulence-explorer/actions/runs/38375144552",
+      "source_sha": "c1dbc20a3ac3991503afbb4b88eb22dd50e713d4"
+    },
+    {
+      "id": "38373064674",
+      "generated_at": "2026-10-13T09:03:16.651566+00:00",
+      "config": {
+        "n": 128,
+        "length": 6.283185307179586,
+        "nu": 0.0005,
+        "alpha": 0.03,
+        "epsilon": 0.1,
+        "kf": 16.0,
+        "bandwidth": 2.0,
+        "dt": 0.01,
+        "duration": 120.0,
+        "average_after": 60.0,
+        "sample_interval": 0.5,
+        "frame_interval": 1.0,
+        "seed": 42
+      },
+      "run_url": "https://github.com/tsufli/turbulence-explorer/actions/runs/38373064674",
+      "source_sha": "dd4e95a7f146d91f9522ac59eb012f6ecaf140c7"
+    },
+    {
+      "id": "38372495382",
+      "generated_at": "2026-10-13T08:59:16.523687+00:00",
+      "config": {
+        "n": 128,
+        "length": 6.283185307179586,
+        "nu": 0.0005,
+        "alpha": 0.03,
+        "epsilon": 0.1,
+        "kf": 16.0,
+        "bandwidth": 2.0,
+        "dt": 0.01,
+        "duration": 120.0,
+        "average_after": 60.0,
+        "sample_interval": 0.5,
+        "frame_interval": 1.0,
+        "seed": 42
+      },
+      "run_url": "https://github.com/tsufli/turbulence-explorer/actions/runs/38372495382",
+      "source_sha": "15092ea3f2c7da591c19100a077df6f5c8cc8ec9"
+    },
+    {
+      "id": "38372252543",
+      "generated_at": "2026-10-13T08:55:12.004382+00:00",
+      "config": {
+        "n": 128,
+        "length": 6.283185307179586,
+        "nu": 0.0005,
+        "alpha": 0.03,
+        "epsilon": 0.1,
+        "kf": 16.0,
+        "bandwidth": 2.0,
+        "dt": 0.01,
+        "duration": 120.0,
+        "average_after": 60.0,
+        "sample_interval": 0.5,
+        "frame_interval": 1.0,
+        "seed": 42
+      },
+      "run_url": "https://github.com/tsufli/turbulence-explorer/actions/runs/38372252543",
+      "source_sha": "14c7dc3f0a7b11846497246ad13351d93a79be08"
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "id": "38372252543",
+  "generated_at": "2026-10-13T08:55:12.004382+00:00",
+  "config": {
+    "n": 128,
+    "length": 6.283185307179586,
+    "nu": 0.0005,
+    "alpha": 0.03,
+    "epsilon": 0.1,
+    "kf": 16.0,
+    "bandwidth": 2.0,
+    "dt": 0.01,
+    "duration": 120.0,
+    "average_after": 60.0,
+    "sample_interval": 0.5,
+    "frame_interval": 1.0,
+    "seed": 42
+  },
+  "run_url": "https://github.com/tsufli/turbulence-explorer/actions/runs/38372252543",
+  "source_sha": "14c7dc3f0a7b11846497246ad13351d93a79be08"
+}
