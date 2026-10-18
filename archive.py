@@ -47,7 +47,7 @@ def extract_results(payload, destination):
         if not re.fullmatch(r'frames/frame-\d+\.bin', name):
             raise ValueError(f'Unexpected frame path: {name}')
         content = entries[name]
-        if len(content) != frame['n'] ** 2 * 12:
+        if len(content) != frame.get('nx', frame['n']) * frame.get('ny', frame['n']) * 12:
             raise ValueError(f'Incomplete frame: {name}')
         files[name] = content
     # Validate the complete artifact before writing anything to the archive.
@@ -92,6 +92,8 @@ def main():
         run = json.load(api(f'actions/runs/{workflow_id}'))
         # A called publisher imports outputs while its parent run is in progress.
         if workflow_id != run_id and run['conclusion'] != 'success':
+            continue
+        if artifact['name'] == 'github-pages' and run['name'] == 'Publish experiment archive':
             continue
         payload = api(f'actions/artifacts/{artifact["id"]}/zip').read()
         try:

@@ -5,7 +5,7 @@ from dataclasses import asdict
 from pathlib import Path
 from simulation import Config, Solver
 
-config = json.loads(Path('config.json').read_text())
+config = json.loads(Path(os.environ.get('SIM_CONFIG_PATH', 'config.json')).read_text())
 preset = os.environ.get('SIM_PRESET', 'standard') or 'standard'
 if preset == 'quick':
     config.update(n=64, kf=8., duration=30., average_after=15.)

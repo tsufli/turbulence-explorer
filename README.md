@@ -66,6 +66,14 @@ The original seven-run scan definition is preserved in `drag-scan-1.json` (0.03 
 
 Use **Actions → Drag scan → Run workflow** to repeat the current batch.
 
+## Rectangular box experiment
+
+The isolated **Rectangular box experiment** workflow uses `rectangle-config.json`. The 15:1 periodic box has Lx=2π√15≈24.3347 and Ly=2π/√15≈1.62231, preserving the square box's area. Its grid is 480×32 (15,360 points versus 16,384 previously), with equal x/y spacing ≈0.0507 versus ≈0.0491 before. Uniform drag is 0.003, T=800 and averaging is 600–800; viscosity, forcing ring, injection and seed are unchanged. The literal lengths 50×750 would require far more grid points to preserve that spacing, so this experiment uses the requested proportions at the original area.
+
+`nx`, `ny`, `length` (x side), and `length_y` describe rectangular geometry. Missing optional dimensions retain the original square solver. Fourier wavenumbers, forcing normalization, dealiasing, CFL and shell diagnostics use the actual two dimensions. Shell width is the smaller fundamental wavenumber; radial plots stop inside a complete dealiased disk. The full vorticity frame is shown at its physical aspect ratio, with no filtering. Each run is archived under its own name.
+
+The default `config.json` and drag scans remain separate from this experiment. Commits marked `[experiment-only]` skip the default simulation; the dedicated rectangle workflow still runs when its configuration changes.
+
 ## Spatial drag experiment
 
 Set `alpha_right` to enable left/right half-box friction: `alpha` applies for 0 ≤ x < L/2 and `alpha_right` for L/2 ≤ x < L. Omit it or set it to `null` for uniform drag. Current experiment: 128², left 0.003, right 0.03, T=800, averaging 400–800; all other physical parameters are unchanged.

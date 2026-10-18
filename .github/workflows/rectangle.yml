@@ -1,0 +1,73 @@
+name: Rectangular box experiment
+
+on:
+  push:
+    branches: [main]
+    paths: [rectangle-config.json]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: turbulence-rectangle
+  cancel-in-progress: false
+
+jobs:
+  simulate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install numerical dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Verify solver
+        run: python -m unittest discover -s tests -v
+      - name: Prepare run configuration
+        env:
+          SIM_PRESET: standard
+          SIM_CONFIG_PATH: rectangle-config.json
+          SIM_OVERRIDES: '{}'
+        run: python prepare_config.py
+      - name: Run simulation and build dashboard
+        env:
+          OPENBLAS_NUM_THREADS: '1'
+          OMP_NUM_THREADS: '1'
+        run: python simulation.py --config effective-config.json --output site
+      - name: Write run summary
+        run: |
+          python - <<'PY'
+          import json, os
+          d = json.load(open('site/results.json'))
+          with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
+              f.write('## Computed simulation results\n\n')
+              f.write('```json\n'+json.dumps(d['summary'], indent=2)+'\n```\n')
+              f.write('Results are deployed in the next job. No stationary scaling law is certified by this run.\n')
+          PY
+      - name: Keep effective parameters for reproducibility
+        uses: actions/upload-artifact@v4
+        with:
+          name: run-config
+          path: effective-config.json
+          retention-days: 7
+      - name: Save experiment output
+        uses: actions/upload-artifact@v4
+        with:
+          name: experiment-result
+          path: site
+          retention-days: 90
+
+  publish:
+    needs: simulate
+    permissions:
+      contents: write
+      actions: read
+      pages: write
+      id-token: write
+    uses: ./.github/workflows/archive.yml
+    with:
+      run_id: ${{ github.run_id }}

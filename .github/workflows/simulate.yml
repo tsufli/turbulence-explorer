@@ -25,6 +25,7 @@ concurrency:
 
 jobs:
   simulate:
+    if: ${{ !contains(github.event.head_commit.message, '[experiment-only]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 330
     steps:

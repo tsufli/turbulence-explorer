@@ -32,13 +32,27 @@ class Config:
     sample_interval: float = 0.5
     frame_interval: float = 1.0
     seed: int = 42
+    nx: int | None = None
+    ny: int | None = None
+    length_y: float | None = None
+    experiment_name: str | None = None
 
 
 class Solver:
     def __init__(self, c):
         self.c = c
-        if c.n not in (64, 128, 256, 512):
-            raise ValueError('n must be 64, 128, 256 or 512')
+        if c.nx is None and c.ny is None and c.n not in (64, 128, 256, 512):
+            raise ValueError('n must be 64, 128, 256 or 512 for legacy square grids')
+        self.nx = c.n if c.nx is None else c.nx
+        self.ny = c.n if c.ny is None else c.ny
+        if any(type(n) is not int or n < 16 or n > 2048 or n % 2 for n in (self.nx, self.ny)):
+            raise ValueError('Grid dimensions must be even integers from 16 to 2048')
+        if self.nx * self.ny > 512**2:
+            raise ValueError('Limit the grid to 512² points')
+        self.lx = c.length
+        self.ly = c.length if c.length_y is None else c.length_y
+        if not np.isfinite(self.ly) or self.ly <= 0:
+            raise ValueError('The y side length must be finite and positive')
         vals = np.array([c.length, c.nu, c.alpha, c.epsilon, c.kf, c.bandwidth,
                          c.dt, c.duration, c.average_after, c.sample_interval, c.frame_interval])
         if not np.isfinite(vals).all():
@@ -51,19 +65,20 @@ class Solver:
             raise ValueError('Right-half drag must be finite and nonnegative')
         self.spatial_drag = c.alpha_right is not None
         self.mean_velocity = np.zeros(2)
-        self.dk = 2 * np.pi / c.length
-        qx = np.fft.rfftfreq(c.n) * c.n
-        qy = np.fft.fftfreq(c.n) * c.n
-        self.kx, self.ky = np.meshgrid(qx * self.dk, qy * self.dk)
+        self.dkx, self.dky = 2*np.pi/self.lx, 2*np.pi/self.ly
+        self.dk = min(self.dkx, self.dky)
+        qx = np.arange(self.nx // 2 + 1)
+        qy = np.rint(np.fft.fftfreq(self.ny) * self.ny)
+        self.kx, self.ky = np.meshgrid(qx * self.dkx, qy * self.dky)
         self.k2 = self.kx**2 + self.ky**2
         self.inv = np.divide(1., self.k2, out=np.zeros_like(self.k2), where=self.k2 > 0)
         # Strict inequality removes alias-producing boundary triads.
-        self.mask = (abs(qy[:, None]) < c.n / 3) & (qx[None, :] < c.n / 3)
+        self.mask = (abs(qy[:, None]) < self.ny / 3) & (qx[None, :] < self.nx / 3)
         self.mask[0, 0] = False
-        self.weights = np.broadcast_to(np.where((qx == 0) | (qx == c.n / 2), 1., 2.), self.k2.shape)
+        self.weights = np.broadcast_to(np.where((qx == 0) | (qx == self.nx / 2), 1., 2.), self.k2.shape)
         self.radius = np.sqrt(self.k2)
         self.band = self.mask & (abs(self.radius - c.kf) <= c.bandwidth / 2)
-        if not self.band.any() or c.kf + c.bandwidth / 2 >= (c.n / 3) * self.dk:
+        if not self.band.any() or c.kf + c.bandwidth / 2 >= min(self.nx*self.dkx/3, self.ny*self.dky/3):
             raise ValueError('Forcing band must fit inside the complete dealiased disk')
         self.shell = np.floor(self.radius / self.dk + 0.5).astype(int)
         self.nshell = self.shell.max() + 1
@@ -73,18 +88,18 @@ class Solver:
             # Only |m| <= 2*cut can couple two retained velocity modes.
             # Products on a doubled grid therefore recover the Galerkin
             # projection without sampling/aliasing the discontinuity.
-            self.drag_n = 2 * c.n
-            self.drag_rows = (np.fft.fftfreq(c.n) * c.n).astype(int) % self.drag_n
-            cut = int(np.ceil(c.n / 3)) - 1
-            alpha_hat = np.zeros((self.drag_n, self.drag_n // 2 + 1), complex)
+            self.drag_shape = (2*self.ny, 2*self.nx)
+            self.drag_rows = np.rint(np.fft.fftfreq(self.ny) * self.ny).astype(int) % self.drag_shape[0]
+            cut = int(np.ceil(self.nx / 3)) - 1
+            alpha_hat = np.zeros((self.drag_shape[0], self.drag_shape[1] // 2 + 1), complex)
             alpha_hat[0, 0] = (c.alpha + c.alpha_right) / 2
             m = np.arange(1, 2 * cut + 1)
             alpha_hat[0, m] = (c.alpha - c.alpha_right) * (1 - (-1.)**m) / (2j * np.pi * m)
-            self.drag_profile = irfft2(alpha_hat, s=(self.drag_n, self.drag_n), norm='forward')
-        # A real-space unit Gaussian FFT has E|q_hat|² = 1/n².
+            self.drag_profile = irfft2(alpha_hat, s=self.drag_shape, norm='forward')
+        # A real-space unit Gaussian FFT has E|q_hat|² = 1/(nx*ny).
         # Choose covariance, rather than normalizing individual realizations.
         s = np.sum(self.weights * self.band * self.inv)
-        self.sigma = np.sqrt(2 * c.epsilon * c.n**2 / s)
+        self.sigma = np.sqrt(2 * c.epsilon * (self.nx*self.ny) / s)
         self.eta = c.epsilon * np.sum(self.weights * self.band) / s
         self.rng = np.random.default_rng(c.seed)
         self.w = np.zeros_like(self.k2, dtype=complex)
@@ -96,7 +111,7 @@ class Solver:
         return rfft2(a, norm='forward')
 
     def real(self, a):
-        return irfft2(a, s=(self.c.n, self.c.n), norm='forward')
+        return irfft2(a, s=(self.ny, self.nx), norm='forward')
 
     def velocity(self, w, mean=None):
         # omega = dx(v)-dy(u); u_hat=i ky omega_hat/k², v_hat=-i kx omega_hat/k².
@@ -118,17 +133,17 @@ class Solver:
         """curl(-alpha(x) velocity), projected onto retained incompressible modes."""
         if mean is None:
             mean = self.mean_velocity
-        shape = (self.drag_n, self.drag_n // 2 + 1)
+        shape = (self.drag_shape[0], self.drag_shape[1] // 2 + 1)
         uh, vh = np.zeros(shape, complex), np.zeros(shape, complex)
-        uh[self.drag_rows, :self.c.n // 2 + 1] = 1j * self.ky * self.inv * w
-        vh[self.drag_rows, :self.c.n // 2 + 1] = -1j * self.kx * self.inv * w
+        uh[self.drag_rows, :self.nx // 2 + 1] = 1j * self.ky * self.inv * w
+        vh[self.drag_rows, :self.nx // 2 + 1] = -1j * self.kx * self.inv * w
         uh[0, 0], vh[0, 0] = mean
-        u = irfft2(uh, s=(self.drag_n, self.drag_n), norm='forward')
-        v = irfft2(vh, s=(self.drag_n, self.drag_n), norm='forward')
+        u = irfft2(uh, s=self.drag_shape, norm='forward')
+        v = irfft2(vh, s=self.drag_shape, norm='forward')
         fu = rfft2(-self.drag_profile * u, norm='forward')
         fv = rfft2(-self.drag_profile * v, norm='forward')
-        dw = (1j * self.kx * fv[self.drag_rows, :self.c.n // 2 + 1]
-              - 1j * self.ky * fu[self.drag_rows, :self.c.n // 2 + 1]) * self.mask
+        dw = (1j * self.kx * fv[self.drag_rows, :self.nx // 2 + 1]
+              - 1j * self.ky * fu[self.drag_rows, :self.nx // 2 + 1]) * self.mask
         dm = np.array([fu[0, 0].real, fv[0, 0].real])
         rate_z = self.weights * np.real(np.conj(w) * dw)
         dissipation = np.array([-np.sum(rate_z * self.inv) - np.dot(mean, dm), -np.sum(rate_z)])
@@ -145,7 +160,7 @@ class Solver:
         if self.c.epsilon:
             variance_time = np.divide(-np.expm1(-2 * self.decay_rate * h), 2 * self.decay_rate,
                                       out=np.full_like(self.k2, h), where=self.decay_rate > 0)
-            q = self.fft(self.rng.standard_normal((self.c.n, self.c.n)))
+            q = self.fft(self.rng.standard_normal((self.ny, self.nx)))
             self.w += self.sigma * np.sqrt(variance_time) * self.band * q
         noise = self.totals(self.w) - damped
         damping = before - damped
@@ -154,7 +169,10 @@ class Solver:
     def step(self, h):
         # Symmetric splitting: exact stochastic OU half-step / RK4 / OU.
         u, v = self.velocity(self.w)
-        advective_rate = self.c.n / self.c.length * np.max(abs(u) + abs(v))
+        if self.nx == self.ny and self.lx == self.ly:
+            advective_rate = self.nx / self.lx * np.max(abs(u) + abs(v))
+        else:
+            advective_rate = np.max(abs(u)*self.nx/self.lx + abs(v)*self.ny/self.ly)
         if advective_rate > 0:
             h = min(h, 0.25 / advective_rate)
         cfl = h * advective_rate
@@ -212,7 +230,7 @@ def snapshot(solver, directory=None, index=0):
     """Export the unfiltered full grid; this never mutates solver state or RNG."""
     omega = solver.real(solver.w)
     u, v = solver.velocity(solver.w)
-    frame = dict(t=float(solver.elapsed), n=solver.c.n,
+    frame = dict(t=float(solver.elapsed), n=solver.c.n, nx=solver.nx, ny=solver.ny,
                  vorticity_max=float(np.max(abs(omega))),
                  speed_max=float(np.max(np.hypot(u, v))))
     if directory is None:
@@ -276,7 +294,7 @@ def run(c, frame_directory=None):
                    expected_energy_injection=c.epsilon, expected_enstrophy_injection=float(solver.eta))
     return dict(schema_version=2, generated_at=datetime.now(timezone.utc).isoformat(),
                 config=asdict(c), summary=summary, k=k.tolist(),
-                flux_k=(k + solver.dk / 2).tolist(), complete_shell_max=float((c.n / 3 - 1) * solver.dk),
+                flux_k=(k + solver.dk / 2).tolist(), complete_shell_max=float(min((solver.nx / 3 - 1)*solver.dkx, (solver.ny / 3 - 1)*solver.dky)),
                 samples=samples, frames=frames, average=avg)
 
 
@@ -288,6 +306,8 @@ def main():
     out = Path(args.output)
     out.mkdir(parents=True, exist_ok=True)
     data = run(Config(**json.loads(Path(args.config).read_text())), out / 'frames')
+    if data['config'].get('experiment_name'):
+        data['experiment_name'] = data['config']['experiment_name']
     for src in Path(__file__).parent.joinpath('web').iterdir():
         shutil.copy2(src, out / src.name)
     # A new field schema must not run with an older cached dashboard script.
