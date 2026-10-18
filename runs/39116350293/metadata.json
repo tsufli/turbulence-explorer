@@ -1,0 +1,27 @@
+{
+  "id": "39116350293",
+  "generated_at": "2026-10-18T10:01:02.633693+00:00",
+  "config": {
+    "n": 128,
+    "length": 24.334672055841672,
+    "nu": 0.0005,
+    "alpha": 0.003,
+    "alpha_right": null,
+    "epsilon": 0.1,
+    "kf": 16,
+    "bandwidth": 2,
+    "dt": 0.01,
+    "duration": 800,
+    "average_after": 600,
+    "sample_interval": 1,
+    "frame_interval": 10,
+    "seed": 42,
+    "nx": 480,
+    "ny": 32,
+    "length_y": 1.6223114703894446,
+    "experiment_name": "15:1 rectangle \u2014 uniform drag 0.003"
+  },
+  "run_url": "https://github.com/tsufli/turbulence-explorer/actions/runs/39116350293",
+  "source_sha": "0321e7dd2465b158eb8959252a624116c93b5cca",
+  "name": "15:1 rectangle \u2014 uniform drag 0.003"
+}
